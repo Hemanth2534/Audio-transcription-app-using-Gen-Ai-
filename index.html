@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Audio Transcription</title>
+    <style>
+        /* Variables for consistent theming */
+        :root {
+            --primary-color: #4CAF50; /* Green */
+            --secondary-color: #8BC34A; /* Light Green */
+            --text-color: #333;
+            --light-text-color: #777;
+            --bg-color: #f9f9f9;
+            --border-color: #ddd;
+            --accent-color: #FFC107; /* Amber */
+        }
+
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;          /* Use flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center;     /* Center vertically */
+            min-height: 100vh;       /* Ensure full viewport height */
+        }
+
+        .container {
+            width: 80%;
+            max-width: 800px; /* Limit container width for readability */
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center; /* Center content within the container */
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 500;
+        }
+
+        /* Input Section */
+        #inputSection {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;  /* Stretch items to fill the container */
+            margin-bottom: 40px;
+        }
+
+        #inputSection label {
+            font-weight: bold;
+            color: var(--light-text-color);
+            margin-bottom: 8px;
+            text-align: left; /* Align labels to the left */
+        }
+
+        #inputSection input[type="file"],
+        #inputSection select {
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            transition: border-color 0.3s ease;
+        }
+
+        #inputSection input[type="file"]:focus,
+        #inputSection select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        #inputSection button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            margin-top: 10px;       /* Add some space above the button */
+            align-self: center; /* Center the button horizontally */
+            width: fit-content;       /* Adjust width to fit content */
+        }
+
+        #inputSection button:hover {
+            background-color: var(--secondary-color);
+            transform: scale(1.05);
+        }
+
+        /* Status Messages */
+        #status {
+            margin-top: 20px;
+            font-style: italic;
+            color: var(--light-text-color);
+            font-size: 1.1em;
+        }
+
+        #loadingIndicator {
+            display: none;
+            margin-top: 20px;
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        #errorDisplay {
+            color: #e74c3c; /* Red */
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+
+        /* Transcription Section */
+        #transcriptionSection {
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            margin-top: 30px;
+            border-radius: 12px;
+            background-color: #fff;
+            white-space: pre-wrap;
+            font-size: 1.1em;
+            color: var(--text-color);
+            min-height: 150px;
+            text-align: left; /* Align transcription text to the left */
+        }
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+                padding: 30px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            #inputSection input[type="file"],
+            #inputSection select {
+                font-size: 14px;
+            }
+
+            #inputSection button {
+                font-size: 16px;
+            }
+
+            #transcriptionSection {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Whisper Audio Transcription</h1>
+
+        <div id="inputSection">
+            <label for="audioFile">Select Audio File:</label>
+            <input type="file" id="audioFile" accept="audio/*">
+
+            <label for="languageSelect">Language (optional):</label>
+            <select id="languageSelect">
+                <option value="">Auto-detect</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <!-- Add more languages as needed -->
+            </select>
+
+            <button id="transcribeButton">Transcribe</button>
+        </div>
+
+        <div id="status">Waiting for audio file selection...</div>
+
+        <div id="loadingIndicator">Transcribing... please wait.</div>
+        <div id="errorDisplay"></div>
+
+        <h2>Transcription:</h2>
+        <div id="transcriptionSection">
+            (No transcription yet)
+        </div>
+    </div>
+
+    <script>
+        const audioFileElement = document.getElementById("audioFile");
+        const transcribeButton = document.getElementById("transcribeButton");
+        const transcriptionSection = document.getElementById("transcriptionSection");
+        const statusElement = document.getElementById("status");
+        const loadingIndicator = document.getElementById("loadingIndicator");
+        const languageSelect = document.getElementById("languageSelect");
+        const errorDisplay = document.getElementById("errorDisplay");
+
+        transcribeButton.addEventListener("click", async () => {
+            const audioFile = audioFileElement.files[0];
+            const language = languageSelect.value;
+
+            if (!audioFile) {
+                alert("Please select an audio file.");
+                return;
+            }
+
+            statusElement.textContent = "Preparing audio for transcription...";
+            loadingIndicator.style.display = "block";
+            errorDisplay.textContent = ""; // Clear any previous errors
+            transcriptionSection.textContent = "(Transcribing...)";
+
+            try {
+                const formData = new FormData();
+                formData.append("audio", audioFile);
+                formData.append("language", language); // Send the language
+
+                const response = await fetch("/app", { // Replace with your backend endpoint
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(HTTP error! status: ${response.status});
+                }
+
+                const data = await response.json();
+
+                if (data.transcription) {
+                    transcriptionSection.textContent = data.transcription;
+                    statusElement.textContent = "Transcription complete.";
+                } else if (data.error) {
+                    errorDisplay.textContent = Error: ${data.error};
+                    statusElement.textContent = "Transcription failed.";
+                } else {
+                    errorDisplay.textContent = "An unexpected error occurred.";
+                    statusElement.textContent = "Transcription failed.";
+                }
+
+            } catch (error) {
+                console.error("Error:", error);
+                errorDisplay.textContent = Error: ${error.message};
+                statusElement.textContent = "Transcription failed due to an error.";
+                transcriptionSection.textContent = "(Transcription error)";
+            } finally {
+                loadingIndicator.style.display = "none";
+            }
+        });
+
+        audioFileElement.addEventListener("change", () => {
+            if (audioFileElement.files.length > 0) {
+                statusElement.textContent = "Ready to transcribe.";
+            } else {
+                statusElement.textContent = "Waiting for audio file selection...";
+            }
+        });
+    </script>
+
+</body>
+</html>
